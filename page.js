@@ -33,6 +33,88 @@
   var running;
 
   /**
+   * @Talia added: IE8 fix / History Polyfill
+   * https://github.com/visionmedia/page.js/pull/48/files
+   */
+
+   var location = window.history.location || window.location;
+   // console.log( 'window.history.location: ' + window.history.location );
+   // console.log( 'window.location: ' + window.location );
+   // console.log( 'location: ' + location );
+
+
+  // @Talia added: IE8 fix / Hasbang (NEEDED?)
+  // https://github.com/visionmedia/page.js/pull/86/files
+  /**
+   * HashBang option
+   */
+
+  var hashbang = false;
+
+  /**
+   * @Talia added: IE8 fix / Various Polyfills
+   *
+   */
+
+  // Object.keys support
+  // From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/keys
+  if (!Object.keys) {
+    // console.log( 'POLYFILL to support Object keys' );
+    Object.keys = (function () {
+      'use strict';
+      var hasOwnProperty = Object.prototype.hasOwnProperty,
+          hasDontEnumBug = !({toString: null}).propertyIsEnumerable('toString'),
+          dontEnums = [
+            'toString',
+            'toLocaleString',
+            'valueOf',
+            'hasOwnProperty',
+            'isPrototypeOf',
+            'propertyIsEnumerable',
+            'constructor'
+          ],
+          dontEnumsLength = dontEnums.length;
+
+      return function (obj) {
+        if (typeof obj !== 'object' && (typeof obj !== 'function' || obj === null)) {
+          throw new TypeError('Object.keys called on non-object');
+        }
+
+        var result = [], prop, i;
+
+        for (prop in obj) {
+          if (hasOwnProperty.call(obj, prop)) {
+            result.push(prop);
+          }
+        }
+
+        if (hasDontEnumBug) {
+          for (i = 0; i < dontEnumsLength; i++) {
+            if (hasOwnProperty.call(obj, dontEnums[i])) {
+              result.push(dontEnums[i]);
+            }
+          }
+        }
+        return result;
+      };
+    }());
+  }
+
+  // @Talia added: IE8 fix / Array.isArray support
+  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray#Compatibility
+  if(!Array.isArray) {
+    // console.log( 'POLYFILL to support Array.isArray' );
+    Array.isArray = function(arg) {
+      return Object.prototype.toString.call(arg) === '[object Array]';
+    };
+  }
+
+
+
+
+  /** @Talia: END POLYFILL **/
+
+  /**
    * Register `path` with callback `fn()`,
    * or route `path`, or `page.start()`.
    *
@@ -105,10 +187,32 @@
     if (running) return;
     running = true;
     if (false === options.dispatch) dispatch = false;
-    if (false !== options.popstate) window.addEventListener('popstate', onpopstate, false);
-    if (false !== options.click) window.addEventListener('click', onclick, false);
+
+    // @Talia added: IE8 fix / IE8 Polyfill
+    // reference https://github.com/visionmedia/page.js/pull/48/files
+    if (false !== options.popstate) addEvent(window, 'popstate', onpopstate);
+    if (false !== options.click) addEvent(document, 'click', onclick);
+    // if (false !== options.popstate) window.addEventListener('popstate', onpopstate, false);
+    // if (false !== options.click) window.addEventListener('click', onclick, false);
+
+
+
+    // @Talia added: IE8 fix / Hasbang (NEEDED?)
+    // https://github.com/visionmedia/page.js/pull/86/files
+    if (true === options.hashbang) hashbang = true;
+
+
     if (!dispatch) return;
+
+    // @Talia added: IE8 fix / Hasbang (NEEDED?)
+    // https://github.com/visionmedia/page.js/pull/86/files
+    // if (hashbang && location.hash.indexOf('#!') === 0)
+    //   var url = location.hash.substr(2) + location.search;
+    // else
+    //   var url = location.pathname + location.search + location.hash;
     var url = location.pathname + location.search + location.hash;
+
+
     page.replace(url, null, true, dispatch);
   };
 
@@ -120,8 +224,13 @@
 
   page.stop = function(){
     running = false;
-    removeEventListener('click', onclick, false);
-    removeEventListener('popstate', onpopstate, false);
+    // @Talia added: IE8 fix / IE8 Polyfill
+    // reference https://github.com/visionmedia/page.js/pull/48/files
+    removeEvent(document, 'click', onclick);
+    removeEvent(window, 'popstate', onpopstate);
+    // removeEventListener('click', onclick, false);
+    // removeEventListener('popstate', onpopstate, false);
+
   };
 
   /**
@@ -188,11 +297,18 @@
    */
 
   function unhandled(ctx) {
-    var current = window.location.pathname + window.location.search;
+    // @Talia note: this is for undefined routes
+    // @Talia added: IE8 fix / History polyfill
+    // https://github.com/visionmedia/page.js/pull/48/files
+    // var current = window.location.pathname + window.location.search;
+    var current = location.pathname + location.search;
     if (current == ctx.canonicalPath) return;
     page.stop();
     ctx.unhandled = true;
-    window.location = ctx.canonicalPath;
+    // @Talia added: IE8 fix / History polyfill
+    // https://github.com/visionmedia/page.js/pull/48/files
+    // window.location = ctx.canonicalPath;
+    location = ctx.canonicalPath;
   }
 
   /**
@@ -225,6 +341,7 @@
     this.path = parts[0];
     this.hash = parts[1] || '';
     this.querystring = this.querystring.split('#')[0];
+    // console.log( this );
   }
 
   /**
@@ -241,6 +358,9 @@
 
   Context.prototype.pushState = function(){
     history.pushState(this.state, this.title, this.canonicalPath);
+    // @Talia added: IE8 fix / Hasbang (NEEDED? COMMENTED OUT BELOW, STILL USING DEFAULT)
+    // https://github.com/visionmedia/page.js/pull/86/files
+    // history.pushState(this.state, this.title, (hashbang ? '#!'+this.canonicalPath : this.canonicalPath));
   };
 
   /**
@@ -251,6 +371,9 @@
 
   Context.prototype.save = function(){
     history.replaceState(this.state, this.title, this.canonicalPath);
+    // @Talia added: IE8 fix / Hasbang (NEEDED? COMMENTED OUT BELOW, STILL USING DEFAULT)
+    // https://github.com/visionmedia/page.js/pull/86/files
+    // history.replaceState(this.state, this.title, (hashbang ? '#!'+this.canonicalPath : this.canonicalPath));
   };
 
   /**
@@ -353,17 +476,27 @@
    */
 
   function onclick(e) {
-    if (1 != which(e)) return;
+
+    // @Talia added: IE8 fix / History Polyfill
+    // https://github.com/visionmedia/page.js/pull/48/files
+    if (!which(e)) return;
+    // if (1 != which(e)) return;
+
     if (e.metaKey || e.ctrlKey || e.shiftKey) return;
     if (e.defaultPrevented) return;
 
     // ensure link
-    var el = e.target;
+    // @Talia added: IE8 fix / History Polyfill
+    // https://github.com/visionmedia/page.js/pull/48/files
+    var el = e.target || e.srcElement;
+    // var el = e.target;
+
     while (el && 'A' != el.nodeName) el = el.parentNode;
     if (!el || 'A' != el.nodeName) return;
 
     // ensure non-hash for the same path
     var link = el.getAttribute('href');
+
     if (el.pathname == location.pathname && (el.hash || '#' == link)) return;
 
     // Check for mailto: in the href
@@ -377,6 +510,11 @@
 
     // rebuild path
     var path = el.pathname + el.search + (el.hash || '');
+    // @Talia added: IE8 fix / History Polyfill
+    // https://github.com/visionmedia/page.js/pull/48/files
+    // on non-html5 browsers (IE9-), `el.pathname` doesn't include leading '/'
+    if (path[0] !== '/') path = '/' + path;
+
 
     // same page
     var orig = path + el.hash;
@@ -384,7 +522,10 @@
     path = path.replace(base, '');
     if (base && orig == path) return;
 
-    e.preventDefault();
+    // @Talia added: IE8 fix / History Polyfill
+    e.preventDefault ? e.preventDefault() : e.returnValue = false;
+    // e.preventDefault();
+
     page.show(orig);
   }
 
@@ -395,8 +536,13 @@
   function which(e) {
     e = e || window.event;
     return null == e.which
-      ? e.button
-      : e.which;
+    // @Talia added: IE8 fix / History Polyfill
+    // https://github.com/visionmedia/page.js/pull/48/files
+    // Check on the comparison operators
+      ? e.button == 0
+      : e.which == 1;
+      // ? e.button
+      // : e.which;
   }
 
   /**
@@ -408,6 +554,28 @@
     if (location.port) origin += ':' + location.port;
     return 0 == href.indexOf(origin);
   }
+
+  // @Talia added: IE8 fix / History Polyfill
+  // https://github.com/visionmedia/page.js/pull/48/files
+  /**
+   * Basic cross browser event code
+   */
+
+ function addEvent(obj, type, fn) {
+   if (obj.addEventListener) {
+     obj.addEventListener(type, fn, false);
+   } else {
+     obj.attachEvent('on' + type, fn);
+   }
+ }
+
+ function removeEvent(obj, type, fn) {
+   if (obj.removeEventListener) {
+     obj.removeEventListener(type, fn, false);
+   } else {
+     obj.detachEvent('on' + type, fn);
+   }
+ }
 
 },{"path-to-regexp":2}],2:[function(_dereq_,module,exports){
 /**

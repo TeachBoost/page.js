@@ -4,7 +4,7 @@
   * Module dependencies.
   */
 
- var pathtoRegexp = _dereq_('path-to-regexp');
+ var pathtoRegexp = require('path-to-regexp');
 
  /**
   * Module exports.

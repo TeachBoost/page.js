@@ -1,7 +1,8 @@
 {
   "name": "page",
   "description": "Tiny client-side router (~1200 bytes)",
-  "version": "2.0.1",
+  "version": "2.0.2",
+  "main": "page.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/TeachBoost/page.js.git"
